@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from app.utils.llm_client import OpenRouterClient
 
-class EvaluatorServer:
+class EvaluatorService:
     def __init__(self):
         self.client = OpenRouterClient()
         self.template_path = Path("app/prompts/evaluator_prompt.txt")
@@ -12,12 +12,21 @@ class EvaluatorServer:
 
     def build_prompt(self, user_prompt: str) -> str:
         template = self.load_template()
-
         return template.replace("{{prompt}}", user_prompt)
 
     def evaluate(self, user_prompt: str) -> dict:
         composed_prompt = self.build_prompt(user_prompt)
-        response_text = self.client.run(composed_prompt)
+        response_text = self.client.run(composed_prompt, self.client.anthropic_model)
+
+        # Strip markdown code fences if present
+        response_text = response_text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]  # Remove ```json
+        elif response_text.startswith("```"):
+            response_text = response_text[3:]  # Remove ```
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]  # Remove trailing ```
+        response_text = response_text.strip()
 
         try:
             return json.loads(response_text)
