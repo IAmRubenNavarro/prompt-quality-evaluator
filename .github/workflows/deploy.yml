@@ -24,7 +24,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/prompt-app:${{ github.sha }} .
+          docker build -f infra/Dockerfile -t ${{ secrets.ACR_NAME }}.azurecr.io/prompt-app:${{ github.sha }} .
 
       - name: Push image to ACR
         run: |
