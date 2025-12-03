@@ -1,37 +1,129 @@
-name: Deploy to Azure
+name: Deploy to AWS
 
 on:
   push:
     branches:
       - master
 
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: prompt-quality-evaluator
+  APP_RUNNER_SERVICE: prompt-quality-evaluator-service
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Log in to Azure
-        uses: azure/login@v1
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to ACR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          az acr login --name ${{ secrets.ACR_NAME }}
+          docker build -f infra/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Build Docker image
+      - name: Deploy to App Runner
         run: |
-          docker build -f infra/Dockerfile -t ${{ secrets.ACR_NAME }}.azurecr.io/prompt-app:${{ github.sha }} .
+          SERVICE_ARN=$(aws apprunner list-services --region ${{ env.AWS_REGION }} \
+            --query "ServiceSummaryList[?ServiceName=='${{ env.APP_RUNNER_SERVICE }}'].ServiceArn" \
+            --output text)
 
-      - name: Push image to ACR
+          if [ -z "$SERVICE_ARN" ]; then
+            echo "Creating new App Runner service..."
+            aws apprunner create-service \
+              --service-name ${{ env.APP_RUNNER_SERVICE }} \
+              --source-configuration '{
+                "ImageRepository": {
+                  "ImageIdentifier": "${{ steps.build-image.outputs.image }}",
+                  "ImageConfiguration": {
+                    "Port": "8000",
+                    "RuntimeEnvironmentVariables": {
+                      "OPENROUTER_API_KEY": "${{ secrets.OPENROUTER_API_KEY }}",
+                      "OPENROUTER_BASE_URL": "${{ secrets.OPENROUTER_BASE_URL }}",
+                      "ANTHROPIC_LLM_MODEL": "${{ secrets.ANTHROPIC_LLM_MODEL }}",
+                      "GOOGLE_LLM_MODEL": "${{ secrets.GOOGLE_LLM_MODEL }}",
+                      "OPENAI_LLM_MODEL": "${{ secrets.OPENAI_LLM_MODEL }}"
+                    }
+                  },
+                  "ImageRepositoryType": "ECR",
+                  "AutoDeploymentsEnabled": false
+                },
+                "AuthenticationConfiguration": {
+                  "AccessRoleArn": "${{ secrets.APP_RUNNER_ECR_ACCESS_ROLE_ARN }}"
+                }
+              }' \
+              --instance-configuration '{
+                "Cpu": "1 vCPU",
+                "Memory": "2 GB"
+              }' \
+              --health-check-configuration '{
+                "Protocol": "HTTP",
+                "Path": "/health",
+                "Interval": 10,
+                "Timeout": 5,
+                "HealthyThreshold": 1,
+                "UnhealthyThreshold": 5
+              }' \
+              --region ${{ env.AWS_REGION }}
+          else
+            echo "Updating existing App Runner service..."
+            aws apprunner update-service \
+              --service-arn $SERVICE_ARN \
+              --source-configuration '{
+                "ImageRepository": {
+                  "ImageIdentifier": "${{ steps.build-image.outputs.image }}",
+                  "ImageConfiguration": {
+                    "Port": "8000",
+                    "RuntimeEnvironmentVariables": {
+                      "OPENROUTER_API_KEY": "${{ secrets.OPENROUTER_API_KEY }}",
+                      "OPENROUTER_BASE_URL": "${{ secrets.OPENROUTER_BASE_URL }}",
+                      "ANTHROPIC_LLM_MODEL": "${{ secrets.ANTHROPIC_LLM_MODEL }}",
+                      "GOOGLE_LLM_MODEL": "${{ secrets.GOOGLE_LLM_MODEL }}",
+                      "OPENAI_LLM_MODEL": "${{ secrets.OPENAI_LLM_MODEL }}"
+                    }
+                  },
+                  "ImageRepositoryType": "ECR",
+                  "AutoDeploymentsEnabled": false
+                },
+                "AuthenticationConfiguration": {
+                  "AccessRoleArn": "${{ secrets.APP_RUNNER_ECR_ACCESS_ROLE_ARN }}"
+                }
+              }' \
+              --region ${{ env.AWS_REGION }}
+          fi
+
+      - name: Wait for deployment
         run: |
-          docker push ${{ secrets.ACR_NAME }}.azurecr.io/prompt-app:${{ github.sha }}
+          SERVICE_ARN=$(aws apprunner list-services --region ${{ env.AWS_REGION }} \
+            --query "ServiceSummaryList[?ServiceName=='${{ env.APP_RUNNER_SERVICE }}'].ServiceArn" \
+            --output text)
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          images: ${{ secrets.ACR_NAME }}.azurecr.io/prompt-app:${{ github.sha }}
+          aws apprunner wait service-running --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }}
+
+          SERVICE_URL=$(aws apprunner describe-service --service-arn $SERVICE_ARN \
+            --region ${{ env.AWS_REGION }} --query "Service.ServiceUrl" --output text)
+
+          echo "✓ Deployment successful!"
+          echo "Service URL: https://$SERVICE_URL"
