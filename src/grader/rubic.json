@@ -1,0 +1,20 @@
+{
+  "criteria": {
+    "accuracy": {
+      "description": "How correct and factually accurate is the answer?",
+      "weight": 0.4
+    },
+    "reasoning": {
+      "description": "How well-reasoned and logically sound is the answer?",
+      "weight": 0.4
+    },
+    "clarity": {
+      "description": "How clear, well-structured, and easy to understand is the answer?",
+      "weight": 0.2
+    }
+  },
+  "scoring": {
+    "scale_min": 0.0,
+    "scale_max": 10.0
+  }
+}

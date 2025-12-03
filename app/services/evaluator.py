@@ -16,7 +16,7 @@ class EvaluatorService:
 
     def evaluate(self, user_prompt: str) -> dict:
         composed_prompt = self.build_prompt(user_prompt)
-        response_text = self.client.run(composed_prompt, self.client.anthropic_model)
+        response_text = self.client.chat(composed_prompt, self.client.anthropic_model)
 
         # Strip markdown code fences if present
         response_text = response_text.strip()

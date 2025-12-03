@@ -1,0 +1,23 @@
+You are a strict evaluator. Read the expected answer and the model's actual answer.
+Using the rubric below, assign a score between {{scale_min}} and {{scale_max}} for each criterion.
+
+Rubric:
+{{rubric}}
+
+Expected Answer:
+{{expected}}
+
+Model Answer:
+{{actual}}
+
+Return ONLY valid JSON in this format:
+
+{
+  "scores": {
+    "accuracy": <float>,
+    "reasoning": <float>,
+    "clarity": <float>
+  },
+  "final_score": <float>,
+  "explanation": "<text>"
+}

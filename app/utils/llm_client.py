@@ -15,7 +15,7 @@ class OpenRouterClient:
             if not self.api_key or not self.anthropic_model or not self.google_model or not self.openai_model:
                 raise ValueError("Unable to fetch environment variable")
 
-        def run(self, prompt: str, model: str) -> str:
+        def chat(self, prompt: str, model: str) -> str:
             """Sends a prompt to OpenRouter and returns the text response."""
 
             headers = {
