@@ -19,9 +19,9 @@ class GraderService:
         template = self.load_template()
         rubric_text = json.dumps(self.rubric["criteria"], indent = 2)
 
-        prompt = template.replace(f"{{rubric}}", rubric_text)
-        prompt = prompt.replace(f"{{expected}}", expected)
-        prompt = prompt.replace(f"{{actual}}", actual)
+        prompt = template.replace("{{rubric}}", rubric_text)
+        prompt = prompt.replace("{{expected}}", expected)
+        prompt = prompt.replace("{{actual}}", actual)
         prompt = prompt.replace("{{scale_min}}", str(self.rubric["scoring"]["scale_min"]))
         prompt = prompt.replace("{{scale_max}}", str(self.rubric["scoring"]["scale_max"]))
 

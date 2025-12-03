@@ -17,7 +17,7 @@ class EvaluatorServer:
 
     def evaluate(self, user_prompt: str) -> dict:
         composed_prompt = self.build_prompt(user_prompt)
-        response_text = self.client.chat(composed_prompt)
+        response_text = self.client.chat(composed_prompt, self.client.anthropic_model)
 
         try:
             return json.loads(response_text)
