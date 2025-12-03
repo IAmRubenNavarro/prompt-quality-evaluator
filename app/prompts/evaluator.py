@@ -5,7 +5,9 @@ from app.utils.llm_client import OpenRouterClient
 class EvaluatorServer:
     def __init__(self):
         self.client = OpenRouterClient()
-        self.template_path = Path("app/prompts/evaluator_prompt.txt")
+        # Use paths relative to this file to avoid working directory issues
+        base_path = Path(__file__).parent.parent.parent
+        self.template_path = base_path / "app" / "prompts" / "evaluator_prompt.txt"
 
     def load_template(self) -> str:
         return self.template_path.read_text()

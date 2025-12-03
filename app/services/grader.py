@@ -8,7 +8,7 @@ class GraderService:
         # Use paths relative to this file to avoid working directory issues
         base_path = Path(__file__).parent.parent.parent
         self.template_path = base_path / "app" / "prompts" / "grading_prompt.txt"
-        self.rubric_path = base_path / "src" / "grader" / "rubic.json"
+        self.rubric_path = base_path / "src" / "grader" / "rubric.json"
 
         self.rubric = json.loads(self.rubric_path.read_text())
 
@@ -27,7 +27,7 @@ class GraderService:
 
         return prompt
 
-    def grade(self, expected:str, actual:str) -> dict:
+    def grade(self, expected: str, actual: str) -> dict:
         composed_prompt = self.build_prompt(expected, actual)
         response_text = self.client.chat(composed_prompt, self.client.anthropic_model)
 
