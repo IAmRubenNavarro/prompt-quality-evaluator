@@ -1,10 +1,12 @@
 from app.services.grader import GraderService
+from app.services.rewriter import RewriterService
 
-grader = GraderService()
+# Test RewriterService
+rewriter = RewriterService()
 
-result = grader.grade(
-    expected="19",
-    actual="The answer is 19."
+result = rewriter.rewrite(
+    "Write a function that calculates fibonacci numbers"
 )
 
+print("Rewrite result:")
 print(result)
