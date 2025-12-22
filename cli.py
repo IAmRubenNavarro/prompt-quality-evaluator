@@ -5,7 +5,7 @@ import requests
 import json
 import sys
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "https://prompt-quality-app.niceforest-551e4f1a.eastus.azurecontainerapps.io"
 
 def print_header(text):
     print("\n" + "=" * 60)

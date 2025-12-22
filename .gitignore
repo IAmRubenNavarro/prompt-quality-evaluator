@@ -62,3 +62,6 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Documentation
+AZURE_DEPLOYMENT.md
