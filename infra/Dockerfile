@@ -23,9 +23,9 @@ USER appuser
 # Expose port 8000
 EXPOSE 8000
 
-# Health check for App Runner
+# Health check (Azure Container Apps uses ingress health probes)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health').raise_for_status()"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-# Fixed: Use uvicorn to run FastAPI app
+# Use uvicorn to run FastAPI app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

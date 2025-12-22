@@ -1,4 +1,4 @@
-name: Deploy to AWS
+name: Deploy to Azure
 
 on:
   push:
@@ -6,124 +6,102 @@ on:
       - master
 
 env:
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY: prompt-quality-evaluator
-  APP_RUNNER_SERVICE: prompt-quality-evaluator-service
+  AZURE_RESOURCE_GROUP: prompt-quality-evaluator-rg
+  AZURE_LOCATION: eastus
+  CONTAINER_REGISTRY: promptqualityevaluator
+  CONTAINER_APP_NAME: prompt-quality-evaluator
+  CONTAINER_APP_ENV: prompt-quality-evaluator-env
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    permissions:
-      id-token: write  # Required for OIDC
-      contents: read
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Login to Azure
+        uses: azure/login@v1
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Login to Azure Container Registry
+        run: |
+          az acr login --name ${{ env.CONTAINER_REGISTRY }}
 
-      - name: Build, tag, and push image
+      - name: Build and push Docker image
         id: build-image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -f infra/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          IMAGE_NAME=${{ env.CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_APP_NAME }}:$IMAGE_TAG
+          IMAGE_LATEST=${{ env.CONTAINER_REGISTRY }}.azurecr.io/${{ env.CONTAINER_APP_NAME }}:latest
 
-      - name: Deploy to App Runner
+          docker build -f infra/Dockerfile -t $IMAGE_NAME -t $IMAGE_LATEST .
+          docker push $IMAGE_NAME
+          docker push $IMAGE_LATEST
+
+          echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create or Update Container App
         run: |
-          SERVICE_ARN=$(aws apprunner list-services --region ${{ env.AWS_REGION }} \
-            --query "ServiceSummaryList[?ServiceName=='${{ env.APP_RUNNER_SERVICE }}'].ServiceArn" \
-            --output text)
+          # Check if Container App Environment exists
+          ENV_EXISTS=$(az containerapp env list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "[?name=='${{ env.CONTAINER_APP_ENV }}'].name" -o tsv)
 
-          if [ -z "$SERVICE_ARN" ]; then
-            echo "Creating new App Runner service..."
-            aws apprunner create-service \
-              --service-name ${{ env.APP_RUNNER_SERVICE }} \
-              --source-configuration '{
-                "ImageRepository": {
-                  "ImageIdentifier": "${{ steps.build-image.outputs.image }}",
-                  "ImageConfiguration": {
-                    "Port": "8000",
-                    "RuntimeEnvironmentVariables": {
-                      "OPENROUTER_API_KEY": "${{ secrets.OPENROUTER_API_KEY }}",
-                      "OPENROUTER_BASE_URL": "${{ secrets.OPENROUTER_BASE_URL }}",
-                      "ANTHROPIC_LLM_MODEL": "${{ secrets.ANTHROPIC_LLM_MODEL }}",
-                      "GOOGLE_LLM_MODEL": "${{ secrets.GOOGLE_LLM_MODEL }}",
-                      "OPENAI_LLM_MODEL": "${{ secrets.OPENAI_LLM_MODEL }}"
-                    }
-                  },
-                  "ImageRepositoryType": "ECR",
-                  "AutoDeploymentsEnabled": false
-                },
-                "AuthenticationConfiguration": {
-                  "AccessRoleArn": "${{ secrets.APP_RUNNER_ECR_ACCESS_ROLE_ARN }}"
-                }
-              }' \
-              --instance-configuration '{
-                "Cpu": "1 vCPU",
-                "Memory": "2 GB"
-              }' \
-              --health-check-configuration '{
-                "Protocol": "HTTP",
-                "Path": "/health",
-                "Interval": 10,
-                "Timeout": 5,
-                "HealthyThreshold": 1,
-                "UnhealthyThreshold": 5
-              }' \
-              --region ${{ env.AWS_REGION }}
-          else
-            echo "Updating existing App Runner service..."
-            aws apprunner update-service \
-              --service-arn $SERVICE_ARN \
-              --source-configuration '{
-                "ImageRepository": {
-                  "ImageIdentifier": "${{ steps.build-image.outputs.image }}",
-                  "ImageConfiguration": {
-                    "Port": "8000",
-                    "RuntimeEnvironmentVariables": {
-                      "OPENROUTER_API_KEY": "${{ secrets.OPENROUTER_API_KEY }}",
-                      "OPENROUTER_BASE_URL": "${{ secrets.OPENROUTER_BASE_URL }}",
-                      "ANTHROPIC_LLM_MODEL": "${{ secrets.ANTHROPIC_LLM_MODEL }}",
-                      "GOOGLE_LLM_MODEL": "${{ secrets.GOOGLE_LLM_MODEL }}",
-                      "OPENAI_LLM_MODEL": "${{ secrets.OPENAI_LLM_MODEL }}"
-                    }
-                  },
-                  "ImageRepositoryType": "ECR",
-                  "AutoDeploymentsEnabled": false
-                },
-                "AuthenticationConfiguration": {
-                  "AccessRoleArn": "${{ secrets.APP_RUNNER_ECR_ACCESS_ROLE_ARN }}"
-                }
-              }' \
-              --region ${{ env.AWS_REGION }}
+          if [ -z "$ENV_EXISTS" ]; then
+            echo "Creating Container App Environment..."
+            az containerapp env create \
+              --name ${{ env.CONTAINER_APP_ENV }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --location ${{ env.AZURE_LOCATION }}
           fi
 
-      - name: Wait for deployment
+          # Check if Container App exists
+          APP_EXISTS=$(az containerapp list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query "[?name=='${{ env.CONTAINER_APP_NAME }}'].name" -o tsv)
+
+          if [ -z "$APP_EXISTS" ]; then
+            echo "Creating Container App..."
+            az containerapp create \
+              --name ${{ env.CONTAINER_APP_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --environment ${{ env.CONTAINER_APP_ENV }} \
+              --image ${{ steps.build-image.outputs.image }} \
+              --target-port 8000 \
+              --ingress external \
+              --cpu 1.0 \
+              --memory 2.0Gi \
+              --min-replicas 0 \
+              --max-replicas 10 \
+              --registry-server ${{ env.CONTAINER_REGISTRY }}.azurecr.io \
+              --env-vars \
+                OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
+                OPENROUTER_BASE_URL="${{ secrets.OPENROUTER_BASE_URL }}" \
+                ANTHROPIC_LLM_MODEL="${{ secrets.ANTHROPIC_LLM_MODEL }}" \
+                GOOGLE_LLM_MODEL="${{ secrets.GOOGLE_LLM_MODEL }}" \
+                OPENAI_LLM_MODEL="${{ secrets.OPENAI_LLM_MODEL }}"
+          else
+            echo "Updating Container App..."
+            az containerapp update \
+              --name ${{ env.CONTAINER_APP_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --image ${{ steps.build-image.outputs.image }} \
+              --set-env-vars \
+                OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
+                OPENROUTER_BASE_URL="${{ secrets.OPENROUTER_BASE_URL }}" \
+                ANTHROPIC_LLM_MODEL="${{ secrets.ANTHROPIC_LLM_MODEL }}" \
+                GOOGLE_LLM_MODEL="${{ secrets.GOOGLE_LLM_MODEL }}" \
+                OPENAI_LLM_MODEL="${{ secrets.OPENAI_LLM_MODEL }}"
+          fi
+
+      - name: Get Container App URL
         run: |
-          SERVICE_ARN=$(aws apprunner list-services --region ${{ env.AWS_REGION }} \
-            --query "ServiceSummaryList[?ServiceName=='${{ env.APP_RUNNER_SERVICE }}'].ServiceArn" \
-            --output text)
-
-          aws apprunner wait service-running --service-arn $SERVICE_ARN --region ${{ env.AWS_REGION }}
-
-          SERVICE_URL=$(aws apprunner describe-service --service-arn $SERVICE_ARN \
-            --region ${{ env.AWS_REGION }} --query "Service.ServiceUrl" --output text)
+          FQDN=$(az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
 
           echo "✓ Deployment successful!"
-          echo "Service URL: https://$SERVICE_URL"
+          echo "Service URL: https://$FQDN"
