@@ -62,3 +62,7 @@ This provides an interactive menu to:
 ## Deployment
 
 This application is deployed to Azure Container Apps. See [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) for deployment instructions.
+
+## UPCOMING CHANGES
+
+Working on adding clarity for Evaluate and Grading responses. (Removing the JSON response)
