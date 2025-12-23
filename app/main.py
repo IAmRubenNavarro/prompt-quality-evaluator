@@ -85,6 +85,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 # Request models with validation
 class PromptRequest(BaseModel):
     user_prompt: str = Field(..., min_length=1, max_length=10000, description="User prompt to process")
+    model: str = Field(default="anthropic", description="LLM provider to use: anthropic, google, or openai")
 
     @validator('user_prompt')
     def validate_prompt(cls, v):
@@ -92,15 +93,30 @@ class PromptRequest(BaseModel):
             raise ValueError('Prompt cannot be empty or whitespace only')
         return v.strip()
 
+    @validator('model')
+    def validate_model(cls, v):
+        allowed_models = ['anthropic', 'google', 'openai']
+        if v.lower() not in allowed_models:
+            raise ValueError(f'Model must be one of: {", ".join(allowed_models)}')
+        return v.lower()
+
 class GradeRequest(BaseModel):
     expected: str = Field(..., min_length=1, max_length=10000, description="Expected prompt")
     actual: str = Field(..., min_length=1, max_length=10000, description="Actual prompt to grade")
+    model: str = Field(default="anthropic", description="LLM provider to use: anthropic, google, or openai")
 
     @validator('expected', 'actual')
     def validate_prompts(cls, v):
         if not v.strip():
             raise ValueError('Prompt cannot be empty or whitespace only')
         return v.strip()
+
+    @validator('model')
+    def validate_model(cls, v):
+        allowed_models = ['anthropic', 'google', 'openai']
+        if v.lower() not in allowed_models:
+            raise ValueError(f'Model must be one of: {", ".join(allowed_models)}')
+        return v.lower()
 
 @app.get("/health")
 @limiter.limit("60/minute")
@@ -127,7 +143,7 @@ def read_root(request: Request):
 def evaluate(request: Request, prompt_request: PromptRequest):
     try:
         svc = EvaluatorService()
-        result = svc.evaluate(prompt_request.user_prompt)
+        result = svc.evaluate(prompt_request.user_prompt, prompt_request.model)
         formatted_text = svc.format_evaluation(result)
         return {
             "formatted": formatted_text,
@@ -143,7 +159,7 @@ def evaluate(request: Request, prompt_request: PromptRequest):
 def rewrite(request: Request, prompt_request: PromptRequest):
     try:
         svc = RewriterService()
-        result = svc.rewrite(prompt_request.user_prompt)
+        result = svc.rewrite(prompt_request.user_prompt, prompt_request.model)
         return {"rewritten_prompt": result}
     except Exception:
         raise HTTPException(status_code=500, detail="An error occurred processing your request")
@@ -153,7 +169,7 @@ def rewrite(request: Request, prompt_request: PromptRequest):
 def grade(request: Request, grade_request: GradeRequest):
     try:
         svc = GraderService()
-        result = svc.grade(grade_request.expected, grade_request.actual)
+        result = svc.grade(grade_request.expected, grade_request.actual, grade_request.model)
         formatted_text = svc.format_grade(result)
         return {
             "formatted": formatted_text,
