@@ -182,9 +182,9 @@
         <p class="subtitle">Powered by Azure Container Apps</p>
 
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('rewrite')">Rewrite</button>
-            <button class="tab" onclick="switchTab('evaluate')">Evaluate</button>
-            <button class="tab" onclick="switchTab('grade')">Grade</button>
+            <button class="tab active" onclick="switchTab(event, 'rewrite')">Rewrite</button>
+            <button class="tab" onclick="switchTab(event, 'evaluate')">Evaluate</button>
+            <button class="tab" onclick="switchTab(event, 'grade')">Grade</button>
         </div>
 
         <!-- Rewrite Tab -->
@@ -232,7 +232,7 @@
             ? `${window.location.protocol}//${window.location.host}`
             : 'https://prompt-quality-evaluator.agreeablemushroom-86623e38.eastus.azurecontainerapps.io';
 
-        function switchTab(tabName) {
+        function switchTab(event, tabName) {
             // Remove active class from all tabs and content
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));

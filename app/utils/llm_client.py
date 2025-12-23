@@ -48,7 +48,7 @@ class OpenRouterClient:
             else:
                 raise ValueError("Payload failed to configure")
 
-            response = requests.post(self.base_url, json=payload, headers=headers)
+            response = requests.post(self.base_url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             data = response.json()
 

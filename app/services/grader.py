@@ -31,6 +31,16 @@ class GraderService:
         composed_prompt = self.build_prompt(expected, actual)
         response_text = self.client.chat(composed_prompt, self.client.anthropic_model)
 
+        # Strip markdown code fences if present
+        response_text = response_text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]  # Remove ```json
+        elif response_text.startswith("```"):
+            response_text = response_text[3:]  # Remove ```
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]  # Remove trailing ```
+        response_text = response_text.strip()
+
         try:
             return json.loads(response_text)
         except json.JSONDecodeError:
