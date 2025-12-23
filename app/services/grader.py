@@ -27,9 +27,20 @@ class GraderService:
 
         return prompt
 
-    def grade(self, expected: str, actual: str) -> dict:
+    def grade(self, expected: str, actual: str, model: str = "anthropic") -> dict:
         composed_prompt = self.build_prompt(expected, actual)
-        response_text = self.client.chat(composed_prompt, self.client.anthropic_model)
+
+        # Select model based on provider
+        if model == "anthropic":
+            selected_model = self.client.anthropic_model
+        elif model == "google":
+            selected_model = self.client.google_model
+        elif model == "openai":
+            selected_model = self.client.openai_model
+        else:
+            selected_model = self.client.anthropic_model
+
+        response_text = self.client.chat(composed_prompt, selected_model)
 
         # Strip markdown code fences if present
         response_text = response_text.strip()
