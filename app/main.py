@@ -35,6 +35,15 @@ def health():
 def read_root():
     # Get the project root directory (parent of app directory)
     demo_path = Path(__file__).parent.parent / "demo.html"
+
+    # Check if file exists and return error if not
+    if not demo_path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404,
+            detail=f"demo.html not found at {demo_path}. File exists: {demo_path.exists()}"
+        )
+
     return FileResponse(demo_path)
 
 @app.post("/evaluate")
