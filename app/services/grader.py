@@ -36,3 +36,31 @@ class GraderService:
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON from LLM:\n" + response_text)
 
+    @staticmethod
+    def format_grade(grade: dict) -> str:
+        """Convert grading JSON to human-readable text."""
+        lines = []
+        lines.append("PROMPT GRADING RESULTS")
+        lines.append("=" * 50)
+        lines.append("")
+
+        if "scores" in grade:
+            lines.append("SCORES")
+            lines.append("-" * 50)
+            for criterion, score in grade["scores"].items():
+                lines.append(f"{criterion.title()}: {score}")
+            lines.append("")
+
+        if "final_score" in grade:
+            lines.append("FINAL SCORE")
+            lines.append("-" * 50)
+            lines.append(str(grade["final_score"]))
+            lines.append("")
+
+        if "explanation" in grade:
+            lines.append("EXPLANATION")
+            lines.append("-" * 50)
+            lines.append(grade["explanation"])
+
+        return "\n".join(lines)
+

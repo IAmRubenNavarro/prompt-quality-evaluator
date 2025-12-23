@@ -32,3 +32,42 @@ class EvaluatorService:
             return json.loads(response_text)
         except json.JSONDecodeError:
             raise ValueError("LLM returned invalid JSON. Response:\n" + response_text)
+
+    @staticmethod
+    def format_evaluation(evaluation: dict) -> str:
+        """Convert evaluation JSON to human-readable text."""
+        lines = []
+        lines.append("PROMPT EVALUATION")
+        lines.append("=" * 50)
+        lines.append("")
+
+        if "clarity" in evaluation:
+            lines.append("CLARITY")
+            lines.append("-" * 50)
+            lines.append(evaluation["clarity"])
+            lines.append("")
+
+        if "missing_information" in evaluation:
+            lines.append("MISSING INFORMATION")
+            lines.append("-" * 50)
+            lines.append(evaluation["missing_information"])
+            lines.append("")
+
+        if "assumptions" in evaluation:
+            lines.append("ASSUMPTIONS")
+            lines.append("-" * 50)
+            lines.append(evaluation["assumptions"])
+            lines.append("")
+
+        if "safety_issues" in evaluation:
+            lines.append("SAFETY ISSUES")
+            lines.append("-" * 50)
+            lines.append(evaluation["safety_issues"])
+            lines.append("")
+
+        if "overall_feedback" in evaluation:
+            lines.append("OVERALL FEEDBACK")
+            lines.append("-" * 50)
+            lines.append(evaluation["overall_feedback"])
+
+        return "\n".join(lines)

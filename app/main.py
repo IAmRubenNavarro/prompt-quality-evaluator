@@ -69,7 +69,11 @@ def read_root():
 def evaluate(request: PromptRequest):
     svc = EvaluatorService()
     result = svc.evaluate(request.user_prompt)
-    return result
+    formatted_text = svc.format_evaluation(result)
+    return {
+        "formatted": formatted_text,
+        "raw": result
+    }
 
 @app.post("/rewrite")
 def rewrite(request: PromptRequest):
@@ -81,4 +85,8 @@ def rewrite(request: PromptRequest):
 def grade(request: GradeRequest):
     svc = GraderService()
     result = svc.grade(request.expected, request.actual)
-    return result
+    formatted_text = svc.format_grade(result)
+    return {
+        "formatted": formatted_text,
+        "raw": result
+    }

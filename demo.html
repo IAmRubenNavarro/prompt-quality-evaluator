@@ -227,7 +227,10 @@
     </div>
 
     <script>
-        const API_URL = 'https://prompt-quality-app.niceforest-551e4f1a.eastus.azurecontainerapps.io';
+        // Use local API when running on localhost, otherwise use Azure
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? `${window.location.protocol}//${window.location.host}`
+            : 'https://prompt-quality-evaluator.agreeablemushroom-86623e38.eastus.azurecontainerapps.io';
 
         function switchTab(tabName) {
             // Remove active class from all tabs and content
@@ -304,7 +307,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    output.textContent = JSON.stringify(data, null, 2);
+                    output.textContent = data.formatted || JSON.stringify(data, null, 2);
                     result.classList.add('show');
                 } else {
                     throw new Error(data.detail || 'Request failed');
@@ -344,7 +347,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    output.textContent = JSON.stringify(data, null, 2);
+                    output.textContent = data.formatted || JSON.stringify(data, null, 2);
                     result.classList.add('show');
                 } else {
                     throw new Error(data.detail || 'Request failed');
