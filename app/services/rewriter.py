@@ -1,5 +1,4 @@
 from pathlib import Path
-from re import A
 from app.utils.llm_client import OpenRouterClient
 from src.llm.models import SUPPORTED_MODELS
 
