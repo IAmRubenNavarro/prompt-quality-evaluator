@@ -31,6 +31,25 @@ class GradeRequest(BaseModel):
 def health():
     return {"status": "ok"}
 
+@app.get("/debug")
+def debug():
+    import os
+    current_file = Path(__file__)
+    parent_dir = current_file.parent.parent
+
+    files_in_parent = []
+    if parent_dir.exists():
+        files_in_parent = [str(f) for f in parent_dir.iterdir()]
+
+    return {
+        "current_file": str(current_file),
+        "parent_dir": str(parent_dir),
+        "demo_path": str(parent_dir / "demo.html"),
+        "demo_exists": (parent_dir / "demo.html").exists(),
+        "files_in_parent": files_in_parent,
+        "cwd": os.getcwd()
+    }
+
 @app.get("/")
 def read_root():
     # Get the project root directory (parent of app directory)
