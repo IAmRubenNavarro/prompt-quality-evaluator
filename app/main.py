@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+import os
 
 from app.services.evaluator import EvaluatorService
 from app.services.rewriter import RewriterService
@@ -28,6 +30,11 @@ class GradeRequest(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.get("/")
+def read_root():
+    demo_path = os.path.join(os.path.dirname(__file__), "..", "demo.html")
+    return FileResponse(demo_path)
 
 @app.post("/evaluate")
 def evaluate(request: PromptRequest):
