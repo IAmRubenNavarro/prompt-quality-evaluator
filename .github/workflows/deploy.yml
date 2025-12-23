@@ -80,7 +80,8 @@ jobs:
                 OPENROUTER_BASE_URL="${{ secrets.OPENROUTER_BASE_URL }}" \
                 ANTHROPIC_LLM_MODEL="${{ secrets.ANTHROPIC_LLM_MODEL }}" \
                 GOOGLE_LLM_MODEL="${{ secrets.GOOGLE_LLM_MODEL }}" \
-                OPENAI_LLM_MODEL="${{ secrets.OPENAI_LLM_MODEL }}"
+                OPENAI_LLM_MODEL="${{ secrets.OPENAI_LLM_MODEL }}" \
+                ALLOWED_ORIGINS="${{ secrets.ALLOWED_ORIGINS }}"
           else
             echo "Updating Container App..."
             az containerapp update \
@@ -92,7 +93,8 @@ jobs:
                 OPENROUTER_BASE_URL="${{ secrets.OPENROUTER_BASE_URL }}" \
                 ANTHROPIC_LLM_MODEL="${{ secrets.ANTHROPIC_LLM_MODEL }}" \
                 GOOGLE_LLM_MODEL="${{ secrets.GOOGLE_LLM_MODEL }}" \
-                OPENAI_LLM_MODEL="${{ secrets.OPENAI_LLM_MODEL }}"
+                OPENAI_LLM_MODEL="${{ secrets.OPENAI_LLM_MODEL }}" \
+                ALLOWED_ORIGINS="${{ secrets.ALLOWED_ORIGINS }}"
           fi
 
       - name: Get Container App URL
